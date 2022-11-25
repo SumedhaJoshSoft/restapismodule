@@ -13,6 +13,7 @@ import (
 type StatusChecker interface {
 	Check(ctx context.Context, name string) (status bool, err error)
 }
+
 type httpChecker struct {
 }
 
@@ -76,6 +77,7 @@ func defaultHandler(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	fmt.Println("Default Handler started")
 	defer fmt.Println("Default Handler ended")
+
 	select {
 	case <-ctx.Done():
 		err := ctx.Err()
@@ -113,6 +115,7 @@ func websitesHandler(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	fmt.Println("websitesHandler Handler started")
 	defer fmt.Println("websitesHandler Handler ended")
+
 	select {
 	case <-ctx.Done():
 		err := ctx.Err()
@@ -228,5 +231,5 @@ func main() {
 	http.ListenAndServe("127.0.0.1:8000", nil)
 
 	log.Println(websitesMap)
-
+	wg.Wait()
 }
