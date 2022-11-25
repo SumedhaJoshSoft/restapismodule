@@ -16,6 +16,10 @@ type StatusChecker interface {
 type httpChecker struct {
 }
 
+/*
+Function having context working as client to fetch status of websit
+*/
+
 func (h httpChecker) Check(ctx context.Context, sitename string) (status bool,
 	err error) {
 	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
@@ -37,6 +41,9 @@ func (h httpChecker) Check(ctx context.Context, sitename string) (status bool,
 	return true, nil
 }
 
+/*
+go routines working as a server context with timeout of 1 minute
+*/
 func checkSites() {
 	log.Println("STATUS CHECK STARTED")
 	ctxAsClient := context.Background()
@@ -62,6 +69,9 @@ func checkSites() {
 	}
 }
 
+/*
+api handler working as a server context to handle default api requests
+*/
 func defaultHandler(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	fmt.Println("Default Handler started")
@@ -80,6 +90,24 @@ type Websites struct {
 	Websites []string `json:"websites"`
 }
 
+/*
+api handler working as a server context to handle below GET and POST api requests
+1. URL : /websites?name=""
+	Method : GET
+	Response :
+
+				http://www.google.com - UP
+				http://www.facebook.com - UP
+				http://www.fakewebsite1.com - DOWN
+
+2. URL : /websites
+	Method : POST
+	Request Body :
+				{"websites":["http://www.google.com","http://www.facebook.com","http://www.fakewebsite1.com"]}
+	Response :
+				Websites updated successfully.
+	Updates memory map of websites with website statuses
+*/
 func websitesHandler(w http.ResponseWriter, req *http.Request) {
 
 	ctx := req.Context()
@@ -144,6 +172,17 @@ type Website struct {
 	Website string `json:"website"`
 }
 
+/*
+api handler working as a server context to handle below POST api request
+1. URL : /checksitestatus
+	Method : POST
+	Request Body :
+				{"website":"http://www.dsccddss.com"}
+	Response:
+				Site http://www.dsccddss.com is DOWN
+
+	Check the status of website and returns it
+*/
 func checksitestatusHandler(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
 	fmt.Println("checksitestatusHandler Handler started")
