@@ -169,16 +169,23 @@ func checkSiteStatusHandler(w http.ResponseWriter, req *http.Request) {
 
 		if site != "" {
 			_, err := httpChecker.Check(ctxAsClient, site)
+			var res = make(map[string]string)
 			if err != nil {
+				res[site] = "DOWN"
 				websitesMap[site] = "DOWN"
 			} else {
+				res[site] = "UP"
 				websitesMap[site] = "UP"
 			}
-			fmt.Fprintf(w, "Site %s is %s", site, websitesMap[site])
+			resp, _ := json.Marshal(res)
+			w.Header().Add("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(resp)
 		} else {
-			for site, status := range websitesMap {
-				fmt.Fprintf(w, "%s - %s\n", site, status)
-			}
+			resp, _ := json.Marshal(websitesMap)
+			w.Header().Add("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write(resp)
 		}
 	}
 
