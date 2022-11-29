@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 type StatusChecker interface {
@@ -23,16 +25,17 @@ Function having context working as client to fetch status of websit
 
 func (h httpChecker) Check(ctx context.Context, sitename string) (status bool,
 	err error) {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
 
 	req, err := http.NewRequest(http.MethodGet, sitename, nil)
 	if err != nil {
 		log.Println(err)
 	}
-	req = req.WithContext(ctx)
 
-	res, err := http.DefaultClient.Do(req)
+	client := http.Client{
+		Timeout: 1 * time.Minute,
+	}
+	req = req.WithContext(ctx)
+	res, err := client.Do(req)
 	if err != nil {
 		return false, err
 	}
@@ -75,8 +78,8 @@ api handler working as a server context to handle default api requests
 */
 func defaultHandler(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	fmt.Println("Default Handler started")
-	defer fmt.Println("Default Handler ended")
+	log.Println("Default Handler started")
+	defer log.Println("Default Handler ended")
 
 	select {
 	case <-ctx.Done():
@@ -110,11 +113,44 @@ api handler working as a server context to handle below GET and POST api request
 				Websites updated successfully.
 	Updates memory map of websites with website statuses
 */
-func websitesHandler(w http.ResponseWriter, req *http.Request) {
-
+func postWebsitesHandler(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	fmt.Println("websitesHandler Handler started")
-	defer fmt.Println("websitesHandler Handler ended")
+	log.Println("websitesHandler Handler started")
+	defer log.Println("websitesHandler Handler ended")
+
+	select {
+	case <-ctx.Done():
+		err := ctx.Err()
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	default:
+		ctxAsClient := context.Background()
+		httpChecker := httpChecker{}
+		website := Websites{}
+
+		err := json.NewDecoder(req.Body).Decode(&website)
+		if err != nil {
+			fmt.Fprint(w, "Error while updating websites.")
+		} else {
+			for _, site := range website.Websites {
+				_, err := httpChecker.Check(ctxAsClient, site)
+				if err != nil {
+					websitesMap[site] = "DOWN"
+				} else {
+					websitesMap[site] = "UP"
+				}
+			}
+			fmt.Fprint(w, "Websites updated successfully.")
+			log.Println(websitesMap)
+		}
+	}
+
+}
+
+func getWebsitesHandler(w http.ResponseWriter, req *http.Request) {
+	ctx := req.Context()
+	log.Println("websitesHandler Handler started")
+	defer log.Println("websitesHandler Handler ended")
 
 	select {
 	case <-ctx.Done():
@@ -125,47 +161,22 @@ func websitesHandler(w http.ResponseWriter, req *http.Request) {
 		ctxAsClient := context.Background()
 		httpChecker := httpChecker{}
 
-		switch req.Method {
-		case http.MethodGet:
-			log.Println("IN GET HANDLER")
+		log.Println("IN GET HANDLER")
 
-			var site string = req.URL.Query().Get("name")
+		var site string = req.URL.Query().Get("name")
 
-			if site != "" {
-				_, err := httpChecker.Check(ctxAsClient, site)
-				if err != nil {
-					websitesMap[site] = "DOWN"
-				} else {
-					websitesMap[site] = "UP"
-				}
-				fmt.Fprintf(w, "Site %s is %s", site, websitesMap[site])
-			} else {
-				for site, status := range websitesMap {
-					fmt.Fprintf(w, "%s - %s\n", site, status)
-				}
-			}
-
-		case http.MethodPost:
-
-			website := Websites{}
-
-			err := json.NewDecoder(req.Body).Decode(&website)
+		if site != "" {
+			_, err := httpChecker.Check(ctxAsClient, site)
 			if err != nil {
-				fmt.Fprint(w, "Error while updating websites.")
+				websitesMap[site] = "DOWN"
 			} else {
-				for _, site := range website.Websites {
-					_, err := httpChecker.Check(ctxAsClient, site)
-					if err != nil {
-						websitesMap[site] = "DOWN"
-					} else {
-						websitesMap[site] = "UP"
-					}
-				}
-				fmt.Fprint(w, "Websites updated successfully.")
-				log.Println(websitesMap)
+				websitesMap[site] = "UP"
 			}
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			fmt.Fprintf(w, "Site %s is %s", site, websitesMap[site])
+		} else {
+			for site, status := range websitesMap {
+				fmt.Fprintf(w, "%s - %s\n", site, status)
+			}
 		}
 	}
 
@@ -188,8 +199,8 @@ api handler working as a server context to handle below POST api request
 */
 func checksitestatusHandler(w http.ResponseWriter, req *http.Request) {
 	ctx := req.Context()
-	fmt.Println("checksitestatusHandler Handler started")
-	defer fmt.Println("checksitestatusHandler Handler ended")
+	log.Println("checksitestatusHandler Handler started")
+	defer log.Println("checksitestatusHandler Handler ended")
 	select {
 	case <-ctx.Done():
 		err := ctx.Err()
@@ -225,11 +236,18 @@ func main() {
 	wg.Add(1)
 	go checkSites()
 
-	http.HandleFunc("/", defaultHandler)
-	http.HandleFunc("/websites", websitesHandler)
-	http.HandleFunc("/checksitestatus", checksitestatusHandler)
-	http.ListenAndServe("127.0.0.1:8000", nil)
+	router := mux.NewRouter()
 
-	log.Println(websitesMap)
+	//ping
+	router.HandleFunc("/", defaultHandler).Methods(http.MethodGet)
+	router.HandleFunc("/websites", getWebsitesHandler).Methods(http.MethodGet)
+	router.HandleFunc("/websites", postWebsitesHandler).Methods(http.MethodPost)
+	router.HandleFunc("/checksitestatus", checksitestatusHandler).Methods(http.MethodPost)
+	srv := &http.Server{
+		Handler: router,
+		Addr:    "127.0.0.1:8000",
+	}
+
+	log.Fatal(srv.ListenAndServe())
 	wg.Wait()
 }
