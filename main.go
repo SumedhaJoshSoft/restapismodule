@@ -122,6 +122,8 @@ func loadWebsitesHandler(w http.ResponseWriter, req *http.Request) {
 
 		err := json.NewDecoder(req.Body).Decode(&website)
 		if err != nil {
+			w.Header().Add("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprint(w, "Error while updating websites.")
 		} else {
 			for _, site := range website.Websites {
