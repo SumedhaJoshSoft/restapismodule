@@ -27,7 +27,7 @@ func (m *HttpHandlerMock) requestHandler(method string, request string, url stri
 	return
 }
 
-func TestDefaultHandler(t *testing.T) {
+func TestHttpConnetion(t *testing.T) {
 	mockHandler := &HttpHandlerMock{}
 	res := mockHandler.requestHandler(http.MethodGet, "/", "/", defaultHandler, "")
 	assert.Equal(t, res.Code, http.StatusOK)
@@ -43,7 +43,7 @@ Sample response:
 			"http://www.google.com": "UP"
 		}
 */
-func TestCheckAllSiteStatusHandler(t *testing.T) {
+func TestFetchAllWebsiteStatuses(t *testing.T) {
 	mockHandler := &HttpHandlerMock{}
 	res := mockHandler.requestHandler(http.MethodGet, "/websites", "/websites", checkSiteStatusHandler, "")
 	assert.Equal(t, res.Code, http.StatusOK)
@@ -60,7 +60,7 @@ Expected Response:
 			"cdbcb": "DOWN"
 		}
 */
-func TestCheckSiteStatusHandler(t *testing.T) {
+func TestSingleSiteStatusByQueryParam(t *testing.T) {
 
 	mockHandler := &HttpHandlerMock{}
 	res := mockHandler.requestHandler(http.MethodGet, "/websites?name=cdbcb", "/websites", checkSiteStatusHandler, "")
@@ -82,7 +82,7 @@ Sample Input:
 		{"websites":["http://www.google.com","http://www.facebook.com","http://www.fakewebsite1.com"]}
 
 */
-func TestLoadWebsitesHandler(t *testing.T) {
+func TestWebsitesLoadingToMemoryMapWithInvaidRequestBody(t *testing.T) {
 	mockHandler := &HttpHandlerMock{}
 	res := mockHandler.requestHandler(http.MethodPost, "/websites", "/websites", loadWebsitesHandler, "")
 	assert.Equal(t, res.Code, http.StatusBadRequest)
@@ -93,7 +93,7 @@ Sending valid json in request body
 Sample Input:
 		{"websites":["http://www.google.com","http://www.facebook.com","http://www.fakewebsite1.com"]}
 */
-func TestLoadWebsitesWithBodyHandler(t *testing.T) {
+func TestWebsitesLoadingToMemoryMap(t *testing.T) {
 	var websites = `{"websites":["http://www.google.com","http://www.facebook.com","http://www.fakewebsite1.com"]}`
 
 	mockHandler := &HttpHandlerMock{}
